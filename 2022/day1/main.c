@@ -7,7 +7,7 @@ int findindexofmax(int arr[], size_t len) {
 
 	index = 0;
 	tmp = max = arr[0];
-	for (int i = 0; i <= len; i++) {
+	for (int i = 0; i < len; i++) {
 		tmp = arr[i];
 		max = MAX(tmp, max);
 		if (tmp == max)
@@ -37,6 +37,7 @@ int main() {
 		}
 		cal[i] += n;
 	}
+	i++;
 	free(line);
 
 	imax = findindexofmax(cal, i);
