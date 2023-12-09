@@ -4,44 +4,108 @@
 #include <string.h>
 #include <stdint.h>
 
-uint32_t **seed2soil;
-uint32_t **soil2fert;
-uint32_t **fert2water;
-uint32_t **water2light;
-uint32_t **light2temp;
-uint32_t **temp2humid;
-uint32_t **humid2locat;
+#define MAX 100 /* arbitrary */
 
-uint32_t plant[100];	/* arbitrary max number of seeds to plant */
-int nplant;
+struct map {
+	uint32_t src;
+	uint32_t dst;
+	uint32_t rng;
+};
 
-/**
- * Initialize the maps and put them in the global map pointers.
- */
-void
-initmaps()
-{
-	if ((seed2soil = calloc(UINT32_MAX, sizeof(uint32_t))) == NULL)
-		err(1, "calloc failed");
-	// for (i = 0; i < UINT32_MAX; i++)
-		// mapp[i].seed = i;
-}
+struct mapl {
+	int nmap;
+	struct map map[MAX];
+};
+
+enum mapgroup {
+	SEED2SOIL,
+	SOIL2FERT,
+	FERT2WATER,
+	WATER2LIGHT,
+	LIGHT2TEMP,
+	TEMP2HUMID,
+	HUMID2LOCAT,
+	NGROUPS
+};
+
+struct almanac {
+	uint32_t seeds[MAX];
+	int nseeds;
+	struct mapl mapl[NGROUPS];
+} almanac;
+
 
 void
 parseseeds(char *line)
 {
-	printf("%s\n", line);
+	char *tok;
+	int i;
+
+	i = 0;
+	while ((tok = strsep(&line, " ")) != NULL) {
+		if (strcmp(tok, "") == 0)
+			continue;
+		almanac.seeds[i++] = strtol(tok, NULL, 10);
+	}
+	almanac.nseeds = i;
 }
 
 void
-parsemap(uint32_t dst[], uint32_t src[], char *line)
+parsemap(enum mapgroup mgroup, char *line)
 {
+	char *tok;
+	int n;
+
+	n = almanac.mapl[mgroup].nmap;
+
+	tok = strsep(&line, " ");
+	almanac.mapl[mgroup].map[n].dst = strtol(tok, NULL, 10);
+	tok = strsep(&line, " ");
+	almanac.mapl[mgroup].map[n].src = strtol(tok, NULL, 10);
+	tok = strsep(&line, "\n");
+	almanac.mapl[mgroup].map[n].rng = strtol(tok, NULL, 10);
+
+	almanac.mapl[mgroup].nmap++;
 }
 
-int
+char *
+parsemapl(char *line, char *buf)
+{
+	char *tok;
+	enum mapgroup mg;
+
+	mg = 0;
+	if (strcmp(line, "seed-to-soil map:") == 0)
+		mg = SEED2SOIL;
+	else if (strcmp(line, "soil-to-fertilizer map:") == 0)
+		mg = SOIL2FERT;
+	else if (strcmp(line, "fertilizer-to-water map:") == 0)
+		mg = FERT2WATER;
+	else if (strcmp(line, "water-to-light map:") == 0)
+		mg = WATER2LIGHT;
+	else if (strcmp(line, "light-to-temperature map:") == 0)
+		mg = LIGHT2TEMP;
+	else if (strcmp(line, "temperature-to-humidity map:") == 0)
+		mg = TEMP2HUMID;
+	else if (strcmp(line, "humidity-to-location map:") == 0)
+		mg = HUMID2LOCAT;
+	else
+		err(1, "unexpected map type in input");
+
+	while (tok = strsep(&buf, "\n")) {
+		if (strcmp(tok, "") == 0)	// end of map section
+			break;
+		parsemap(mg, tok);
+	}
+
+	return buf;	// pointer moved from strsep so return it
+}
+
+void
 parse(char *buf)
 {
 	char *tok;
+	int i;
 
 	tok = strsep(&buf, ":");
 	if (strcmp(tok, "seeds") == 0) {
@@ -51,19 +115,75 @@ parse(char *buf)
 		err(1, "unexpected input at seeds");
 	}
 	tok = strsep(&buf, "\n");	// eat the blank newline
-	tok = strsep(&buf, ":");
-	if (strcmp(tok, "seed-to-soil map") == 0) {
-		tok = strsep(&buf, "\n");	// eat the trailing newline
-		while (tok = strsep(&buf, "\n")) {
-			if (strcmp(tok, "") == 0)
-				break;
-			// parsemap(map.seeds, map.soils, tok);
+	for (i = 0; i < NGROUPS; i++) {
+		tok = strsep(&buf, "\n");
+		buf = parsemapl(tok, buf);
+	}
+}
+
+int
+src2dst(uint32_t src, enum mapgroup mg)
+{
+	struct map m;
+	uint32_t d;
+	int i;
+
+	for (i = 0; i < almanac.mapl[mg].nmap; i++) {
+		m = almanac.mapl[mg].map[i];
+		if ((src >= m.src) && (src < (m.src + m.rng))) {
+			d = src - m.src;
+			return m.dst + d;
 		}
-	} else {
-		err(1, "unexpected input at seed-to-soil map");
 	}
 
-	return 1;
+	return src;	// identity
+}
+
+uint32_t
+part1()
+{
+	enum mapgroup mg;
+	uint32_t tmp, min;
+	int i;
+
+	min = UINT32_MAX;
+	for (i = 0; i < almanac.nseeds; i++) {
+		tmp = almanac.seeds[i];
+		for (mg = SEED2SOIL; mg < NGROUPS; mg++) {
+			tmp = src2dst(tmp, mg);
+		}
+		if (min > tmp)
+			min = tmp;
+	}
+
+	return min;
+}
+
+uint32_t
+part2()
+{
+	enum mapgroup mg;
+	uint32_t tmp, min;
+	uint32_t i, j;
+
+	min = UINT32_MAX;
+	for (i = 0; i < almanac.nseeds; i+=2) {
+		for (
+			j = 0;
+			j < almanac.seeds[i+1];
+			j++
+		) {
+			tmp = almanac.seeds[i] + j;
+			for (mg = SEED2SOIL; mg < NGROUPS; mg++) {
+				tmp = src2dst(tmp, mg);
+			}
+			if (min > tmp) {
+				min = tmp;
+			}
+		}
+	}
+
+	return min;
 }
 
 int
@@ -73,12 +193,13 @@ main()
 	size_t len;
 	ssize_t nread;
 
-	initmaps();
-
 	buf = NULL, len = 0;
 	while ((nread = getdelim(&buf, &len, EOF, stdin)) != -1) {
 		parse(buf);
 	}
+
+	printf("The answer to day 5 part 1 is %d\n", part1());
+	printf("The answer to day 5 part 1 is %d\n", part2());
 
 	free(buf);
 	exit(0);
