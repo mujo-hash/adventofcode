@@ -10,6 +10,18 @@ parse(char *buf)
 }
 
 int
+part1()
+{
+	// do stuff
+}
+
+int
+part2()
+{
+	// do stuff
+}
+
+int
 main()
 {
 	char *buf;
@@ -20,6 +32,9 @@ main()
 	while ((nread = getdelim(&buf, &len, EOF, stdin)) != -1) {
 		parse(buf);
 	}
+
+	// printf("The answer to day X part 1 is: %d\n", part1());
+	// printf("The answer to day X part 2 is: %d\n", part2());
 
 	free(buf);
 	exit(0);
