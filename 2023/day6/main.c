@@ -111,7 +111,7 @@ main()
 	}
 
 	printf("The answer to day 6 part 1 is: %ld\n", part1());
-	printf("The answer to day 6 part 1 is: %ld\n", part2());
+	printf("The answer to day 6 part 2 is: %ld\n", part2());
 
 	free(buf);
 	exit(0);
